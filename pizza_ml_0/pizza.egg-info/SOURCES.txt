@@ -1,0 +1,16 @@
+README.md
+setup.py
+pizza.egg-info/PKG-INFO
+pizza.egg-info/SOURCES.txt
+pizza.egg-info/dependency_links.txt
+pizza.egg-info/requires.txt
+pizza.egg-info/top_level.txt
+trainer/__init__.py
+trainer/backup_pong_task.py
+trainer/baseline_task.py
+trainer/game.py
+trainer/google_engineer.py
+trainer/helpers.py
+trainer/ingredients.py
+trainer/pizza.py
+trainer/task.py
