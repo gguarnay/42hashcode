@@ -330,7 +330,8 @@ def main(args):
 
 				# Save model every 5 episodes
 				if (episode % 100 == 0 and episode < 500) or (episode % 1000 == 0):
-					save_path = saver.save(sess, "./models/model.ckpt")
+					save_os_path = os.path.join(args.output_dir, 'models/model.ckpt')
+					save_path = saver.save(sess, save_os_path)
 					print("Model Saved")
                     # Write TF Summaries
 					summary = sess.run(write_op, feed_dict={DQNetwork.inputs_: states_mb,
@@ -346,7 +347,9 @@ def main(args):
 		total_test_rewards = []
 
 		# Load the model
-		saver.restore(sess, "./models/model.ckpt")
+		restore_os_path = os.path.join(args.restore_dir, 'models/model.ckpt')
+		restore_path = saver.restore(sess, restore_os_path)
+		#saver.restore(sess, restore_path)
 
 		for episode in range(1):
 			total_rewards = 0
@@ -448,6 +451,10 @@ if __name__ == '__main__':
 		default=batch_size)
 	parser.add_argument(
 		'--output-dir',
+		type=str,
+		default='/tmp/pizza_output')
+	parser.add_argument(
+		'--restore-dir',
 		type=str,
 		default='/tmp/pizza_output')
 	parser.add_argument(
