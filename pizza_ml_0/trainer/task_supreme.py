@@ -16,22 +16,6 @@ import random
 def main(args):
 
     def preprocess(state_dict):
-        stacked_frames = [np.zeros((R,C), dtype=np.float32) for i in range(stack_size)] # replace with np.int
-        stacked_frames[0] = np.array(state_dict['ingredients_map']) #.reshape((R,C)) #tomatoes_map #could use .append...
-        #stacked_frames[1] = (stacked_frames[0] - 1) * -1            #mushrooms_map = (tomatoes_map - 1) * -1  #/!\ Add mushroom map and set stack_size to 5 instead of 4
-        cursor_R, cursor_C = state_dict['cursor_position']          #cursor_R, cursor_C = _state['cursor_position']
-        stacked_frames[1] = np.zeros([R, C]) # try np.zeros((R,C)) #cursor_map = np.zeros([R, C])
-        stacked_frames[1][cursor_R, cursor_C] = 1 #cursor_map[cursor_R,cursor_C] = 1
-        slice_map = np.array(state_dict['slices_map'])             #slice_map = np.array(_state['slices_map'])
-        current_slice_id = slice_map[cursor_R,cursor_C]             #current_slice_id = slice_map[cursor_R,cursor_C]
-        current_slice = np.where(slice_map==current_slice_id)       #current_slice = np.where(slice_map==current_slice_id)
-        stacked_frames[2] = np.zeros([R, C])                        #np.zeros([R, C])
-        stacked_frames[2][current_slice] = 1                        #current_slice_map[current_slice] = 1
-
-        other_slice = np.where((slice_map!=current_slice_id) & (slice_map!=-1))
-        stacked_frames[3] = np.zeros([R, C])                          #other_slice_map = np.zeros([R, C])
-        stacked_frames[3][other_slice] = 1                            #other_slice_map[other_slice] = 1
-        """
         state = np.concatenate((
         np.array(state_dict['ingredients_map']).ravel(),
         np.array(state_dict['slices_map']).ravel(),
@@ -39,14 +23,10 @@ def main(args):
         [state_dict['min_each_ingredient_per_slice'],
         state_dict['max_ingredients_per_slice']],
         ))
-        """
-        stacked_state = np.stack(stacked_frames, axis=2)
-        #return state.astype(np.float).ravel()
-        return stacked_state
+        return state.astype(np.float).ravel()
 
     class DQNetwork:
         def __init__(self, state_size, action_size, learning_rate, name='DQNetwork'):
-            #self.state_size = state_size         #(OK)
             self.state_size = state_size         #(OK)
             self.action_size = action_size       #(OK)
             self.learning_rate = learning_rate   #(OK) args.
@@ -55,68 +35,18 @@ def main(args):
                 # We create the placeholders
                 # *state_size means that we take each elements of state_size in tuple hence is like if we wrote
                 ### Replacing [None, *state_size] by [1, batch_size, *state_size] NOPE needs [None, *state_size for predict_action (1 value)]
-                #self.inputs_ = tf.placeholder(tf.float32, [None, *state_size], name="inputs")
                 self.inputs_ = tf.placeholder(tf.float32, [None, *state_size], name="inputs")
+                #self.inputs_ = tf.placeholder(tf.float32, [1, batch_size, *state_size], name="inputs")
                 self.actions_ = tf.placeholder(tf.float32, [None, self.action_size], name="actions_")
 
                 # Remember that target_Q is the R(s,a) + ymax Qhat(s', a')
                 self.target_Q = tf.placeholder(tf.float32, [None], name="target")
 
 
-                """
-                First convnet:
-                CNN
-                ELU
-                """
-                # Input is RxCx4 (from 110x84x4)
-                self.conv1 = tf.layers.conv2d(inputs = self.inputs_,
-                                        filters = 32,
-                                        kernel_size = [4,4],    # from [8,8]
-                                        strides = [1,1],
-                                        padding = "VALID",
-                                        kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                        name = "conv1")
-
-                self.conv1_out = tf.nn.elu(self.conv1, name="conv1_out")
-
-                """
-                Second convnet:
-                CNN
-                ELU
-                """
-                """
-                self.conv2 = tf.layers.conv2d(inputs = self.conv1_out,
-                                    filters = 64,
-                                    kernel_size = [3,3],  # from [4,4]
-                                    strides = [2,2],
-                                    padding = "VALID",
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                    name = "conv2")
-
-                self.conv2_out = tf.nn.elu(self.conv2, name="conv2_out")
-                """
-                """
-                Third convnet:
-                CNN
-                ELU
-                """
-                """
-                self.conv3 = tf.layers.conv2d(inputs = self.conv2_out,
-                                    filters = 64,
-                                    kernel_size = [3,3],
-                                    strides = [2,2],
-                                    padding = "VALID",
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                    name = "conv3")
-
-                self.conv3_out = tf.nn.elu(self.conv3, name="conv3_out")
-
-                self.flatten = tf.contrib.layers.flatten(self.conv3_out)
-                """
-                self.flatten = tf.contrib.layers.flatten(self.conv1_out)
-                #1_Hot_Encode L and H and add it here below flatten [TO BE ADDED - FIXED FOR NOW...]
                 ### INIT self.flatten to our flatten state!!! (no CNN for now)
-                #self.flatten = self.inputs_
+                self.flatten = self.inputs_
+                #print("==========Yo==========")
+                #print(self.flatten)
 
                 # append 5 node features at the end (cursor 2x1, L, H)
                 self.fc = tf.layers.dense(inputs = self.flatten,
@@ -150,11 +80,6 @@ def main(args):
     class Memory():
         def __init__(self, max_size):
             self.buffer = deque(maxlen = max_size)
-            #stack_size = 4 # We stack 4 frames ## could be commented
-
-            # Initialize deque with zero-images one array for each image
-            #stacked_frames  =  deque([np.zeros((110,84), dtype=np.int) for i in range(stack_size)], maxlen=4)
-
         #MEMORY = deque([], maxlen=MEMORY_CAPACITY)   #NEEDS TO BE CHECKED!!
         #MEMORY is buffer....
         def add(self, experience):
@@ -297,7 +222,7 @@ def main(args):
                 episode_actions = []
                 # Make a new episode and observe the first state
                 # Start a new episode
-                game = Game({'max_steps':max_steps}) # initialize game from game.py
+                game = Game({'max_steps':50}) # initialize game from game.py
                 h = 6 #random.randint(1, R * C + 1)
                 l = 1 #random.randint(1, h // 2 + 1)
                 pizza_lines = [''.join([random.choice("MT") for _ in range(C)]) for _ in range(R)]
@@ -372,14 +297,14 @@ def main(args):
                     # Obtain random mini-batch from memory
                     batch = memory.sample(batch_size)
                     # reshaping states by using squeeze....
-                    states_mb = np.array([each[0] for each in batch], ndmin=3) ## Consider modifying ndmin
-                    #states_mb = np.squeeze(states_mb, axis=0)
+                    states_mb = np.array([each[0] for each in batch], ndmin=3)
+                    states_mb = np.squeeze(states_mb, axis=0)
                     actions_mb = np.array([each[1] for each in batch])
 
                     rewards_mb = np.array([each[2] for each in batch])
                     # reshaping next_states by using squeeze....
                     next_states_mb = np.array([each[3] for each in batch], ndmin=3)
-                    #next_states_mb = np.squeeze(next_states_mb, axis=0)
+                    next_states_mb = np.squeeze(next_states_mb, axis=0)
 
                     dones_mb = np.array([each[4] for each in batch])
                     target_Qs_batch = []
@@ -433,7 +358,7 @@ def main(args):
         for episode in range(1):
             total_rewards = 0
 
-            game = Game({'max_steps':max_steps}) # initialize game from game.py
+            game = Game({'max_steps':200}) # initialize game from game.py
             h = 6 #random.randint(1, R * C + 1)
             l = 1 #random.randint(1, h // 2 + 1)
             pizza_lines = [''.join([random.choice("MT") for _ in range(C)]) for _ in range(R)]
@@ -478,7 +403,7 @@ if __name__ == '__main__':
     ACTIONS = ["down", "right", "next"] #(CONVERTION TO ONE HOT)
     R = 6 #200 # WONT WORK ON CNN! if < 8
     C = 7 #250
-    #OBSERVATION_DIM = R * C * 2 + 4 # give ingredient map (RxC), map of slices (RxC) ....cursor position (2x1) x slice_mode (1)  and your constraints L, H (2)
+    OBSERVATION_DIM = R * C * 2 + 4 # give ingredient map (RxC), map of slices (RxC) ....cursor position (2x1) x slice_mode (1)  and your constraints L, H (2)
 
     MEMORY_CAPACITY = 100000        #(OK)
     ROLLOUT_SIZE = 50 #10000        #(OK)
@@ -490,20 +415,19 @@ if __name__ == '__main__':
 
     ### MODEL HYPERPARAMETERS
     #state_size = [110, 84, 4]      # NEEDS TO BE CHECKED !!! Our input is a stack of 4 frames hence 110x84x4 (Width, height, channels)
-    state_size = [R, C, 4]      # NEEDS TO BE CHECKED !!! Our input is a stack of 4 frames hence 110x84x4 (Width, height, channels)
-    #state_size = [OBSERVATION_DIM] #[R, C, 2]  # NEEDS TO BE CHECKED !!! ([1, OBSERVATION_DIM]) ? [None, OBSERVATION_DIM]
+    state_size = [OBSERVATION_DIM] #[R, C, 2]  # NEEDS TO BE CHECKED !!! ([1, OBSERVATION_DIM]) ? [None, OBSERVATION_DIM]
     action_size = len(ACTIONS)    #(OK) 5 possible actions
     learning_rate =  0.00025      #(OK) Alpha (aka learning rate)
 
     ### TRAINING HYPERPARAMETERS
     total_episodes = 60000            #(OK) Total episodes for training (6000 EPOCHS)
-    max_steps = 200                 #(OK) Max possible steps in an episode [ROLLOUT_SIZE]
+    max_steps = 50                 #(OK) Max possible steps in an episode [ROLLOUT_SIZE]
     batch_size = 64     #instead of 64           #10000                # NEEDS TO BE CHECKED !!! Batch size 64?
 
     # Exploration parameters for epsilon greedy strategy
     explore_start = 1.0            # (OK)exploration probability at start
     explore_stop = 0.01            # (OK)minimum exploration probability
-    decay_rate = 0.00001 / 2       # added /2 # (OK)exponential decay rate for exploration prob
+    decay_rate = 0.00001           # (OK)exponential decay rate for exploration prob
 
     # Q learning hyperparameters
     gamma = 0.9                    # (OK)Discounting rate
@@ -513,7 +437,7 @@ if __name__ == '__main__':
     memory_size = MEMORY_CAPACITY  # (OK)Number of experiences the Memory can keep [MEMORY_CAPACITY]
 
     ### PREPROCESSING HYPERPARAMETERS
-    stack_size = 4                 # NEEDS TO BE CHECKED Number of frames stacked
+    #stack_size = 4                 # NEEDS TO BE CHECKED Number of frames stacked
 
     ### MODIFY THIS TO FALSE IF YOU JUST WANT TO SEE THE TRAINED AGENT
     training = True

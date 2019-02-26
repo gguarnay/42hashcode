@@ -71,7 +71,7 @@ def main(args):
                 # Input is RxCx4 (from 110x84x4)
                 self.conv1 = tf.layers.conv2d(inputs = self.inputs_,
                                         filters = 32,
-                                        kernel_size = [4,4],    # from [8,8]
+                                        kernel_size = [2,2],    # from [8,8]
                                         strides = [1,1],
                                         padding = "VALID",
                                         kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
@@ -84,7 +84,7 @@ def main(args):
                 CNN
                 ELU
                 """
-                """
+
                 self.conv2 = tf.layers.conv2d(inputs = self.conv1_out,
                                     filters = 64,
                                     kernel_size = [3,3],  # from [4,4]
@@ -94,7 +94,7 @@ def main(args):
                                     name = "conv2")
 
                 self.conv2_out = tf.nn.elu(self.conv2, name="conv2_out")
-                """
+
                 """
                 Third convnet:
                 CNN
@@ -113,7 +113,7 @@ def main(args):
 
                 self.flatten = tf.contrib.layers.flatten(self.conv3_out)
                 """
-                self.flatten = tf.contrib.layers.flatten(self.conv1_out)
+                self.flatten = tf.contrib.layers.flatten(self.conv2_out)
                 #1_Hot_Encode L and H and add it here below flatten [TO BE ADDED - FIXED FOR NOW...]
                 ### INIT self.flatten to our flatten state!!! (no CNN for now)
                 #self.flatten = self.inputs_

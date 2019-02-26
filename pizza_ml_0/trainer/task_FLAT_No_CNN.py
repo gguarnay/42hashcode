@@ -41,6 +41,8 @@ def main(args):
         ))
         """
         stacked_state = np.stack(stacked_frames, axis=2)
+        #stacked_state = np.array(stacked_frames).ravel()
+        #print(stacked_state) #remove if flattened
         #return state.astype(np.float).ravel()
         return stacked_state
 
@@ -68,10 +70,11 @@ def main(args):
                 CNN
                 ELU
                 """
+                """
                 # Input is RxCx4 (from 110x84x4)
                 self.conv1 = tf.layers.conv2d(inputs = self.inputs_,
                                         filters = 32,
-                                        kernel_size = [4,4],    # from [8,8]
+                                        kernel_size = [2,2],    # from [8,8]
                                         strides = [1,1],
                                         padding = "VALID",
                                         kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
@@ -80,11 +83,13 @@ def main(args):
                 self.conv1_out = tf.nn.elu(self.conv1, name="conv1_out")
 
                 """
+                """
                 Second convnet:
                 CNN
                 ELU
                 """
                 """
+
                 self.conv2 = tf.layers.conv2d(inputs = self.conv1_out,
                                     filters = 64,
                                     kernel_size = [3,3],  # from [4,4]
@@ -113,9 +118,12 @@ def main(args):
 
                 self.flatten = tf.contrib.layers.flatten(self.conv3_out)
                 """
-                self.flatten = tf.contrib.layers.flatten(self.conv1_out)
+                #self.flatten = tf.contrib.layers.flatten(self.conv2_out)
+
+
                 #1_Hot_Encode L and H and add it here below flatten [TO BE ADDED - FIXED FOR NOW...]
                 ### INIT self.flatten to our flatten state!!! (no CNN for now)
+                self.flatten = tf.contrib.layers.flatten(self.inputs_)
                 #self.flatten = self.inputs_
 
                 # append 5 node features at the end (cursor 2x1, L, H)
@@ -366,19 +374,20 @@ def main(args):
 
                         # st+1 is now our current state
                         _state = _next_state
+                        #game.render()       #remove for debug
 
 
                     ### LEARNING PART
                     # Obtain random mini-batch from memory
                     batch = memory.sample(batch_size)
                     # reshaping states by using squeeze....
-                    states_mb = np.array([each[0] for each in batch], ndmin=3) ## Consider modifying ndmin
+                    states_mb = np.array([each[0] for each in batch], ndmin=3) ## ndmin=3 Consider modifying ndmin
                     #states_mb = np.squeeze(states_mb, axis=0)
                     actions_mb = np.array([each[1] for each in batch])
 
                     rewards_mb = np.array([each[2] for each in batch])
                     # reshaping next_states by using squeeze....
-                    next_states_mb = np.array([each[3] for each in batch], ndmin=3)
+                    next_states_mb = np.array([each[3] for each in batch], ndmin=3) #ndmin=3
                     #next_states_mb = np.squeeze(next_states_mb, axis=0)
 
                     dones_mb = np.array([each[4] for each in batch])
@@ -478,7 +487,7 @@ if __name__ == '__main__':
     ACTIONS = ["down", "right", "next"] #(CONVERTION TO ONE HOT)
     R = 6 #200 # WONT WORK ON CNN! if < 8
     C = 7 #250
-    #OBSERVATION_DIM = R * C * 2 + 4 # give ingredient map (RxC), map of slices (RxC) ....cursor position (2x1) x slice_mode (1)  and your constraints L, H (2)
+    #OBSERVATION_DIM = R * C * 4 #+ 4 # give ingredient map (RxC), map of slices (RxC) ....cursor position (2x1) x slice_mode (1)  and your constraints L, H (2)
 
     MEMORY_CAPACITY = 100000        #(OK)
     ROLLOUT_SIZE = 50 #10000        #(OK)
