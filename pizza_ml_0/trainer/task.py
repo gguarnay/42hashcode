@@ -29,8 +29,8 @@ def main(args):
         stacked_frames[2][current_slice] = 1                        #current_slice_map[current_slice] = 1
 
         other_slice = np.where((slice_map!=current_slice_id) & (slice_map!=-1))
-        stacked_frames[2] = np.zeros([R, C])                          #other_slice_map = np.zeros([R, C])
-        stacked_frames[2][other_slice] = 1                            #other_slice_map[other_slice] = 1
+        stacked_frames[3] = np.zeros([R, C])                          #other_slice_map = np.zeros([R, C])
+        stacked_frames[3][other_slice] = 1                            #other_slice_map[other_slice] = 1
         """
         state = np.concatenate((
         np.array(state_dict['ingredients_map']).ravel(),
