@@ -427,7 +427,7 @@ if __name__ == '__main__':
     # Exploration parameters for epsilon greedy strategy
     explore_start = 1.0            # (OK)exploration probability at start
     explore_stop = 0.01            # (OK)minimum exploration probability
-    decay_rate = 0.00001       # (OK)exponential decay rate for exploration prob
+    decay_rate = 0.00001 / 2       # (OK)exponential decay rate for exploration prob
 
     # Q learning hyperparameters
     gamma = 0.9                    # (OK)Discounting rate

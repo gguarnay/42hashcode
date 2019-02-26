@@ -1,4 +1,4 @@
-from ingredients import Ingredients
+from trainer.ingredients import Ingredients
 
 import numpy as np
 from enum import Enum

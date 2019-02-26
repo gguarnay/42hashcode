@@ -18,21 +18,24 @@ BUCKET=$GCS_BUCKET
 
 TRAINER_PACKAGE_PATH="./trainer"
 MAIN_TRAINER_MODULE="trainer.task"
+NAME_=$NAME
 
 now=$(date +"%Y%m%d_%H%M%S")
-JOB_NAME="pizza_$now"
+JOB_NAME="pizza_"$NAME_"_$now"
 
 JOB_DIR=$BUCKET$JOB_NAME
+RESTORE_DIR=$RESTORE
 
 gcloud ml-engine jobs submit training $JOB_NAME \
     --job-dir $JOB_DIR \
     --package-path $TRAINER_PACKAGE_PATH \
     --module-name $MAIN_TRAINER_MODULE \
     --python-version 3.5 \
-    --region us-central1 \
+    --region us-west1 \
     --config config.yaml \
     --runtime-version 1.10 \
     -- \
-    --output-dir $BUCKET"pizza_$now" \
+    --output-dir $BUCKET$JOB_NAME \
+    --restore-dir $RESTORE_DIR \
     --learning-rate 0.0005 \
     --save-checkpoint-steps 10 \
