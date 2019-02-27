@@ -44,107 +44,112 @@ def main(args):
         #return state.astype(np.float).ravel()
         return stacked_state
 
-    class DQNetwork:
-        def __init__(self, state_size, action_size, learning_rate, name='DQNetwork'):
+    #class DQNetwork:
+    class DDDQNNet:
+        #def __init__(self, state_size, action_size, learning_rate, name='DQNetwork'):
+        def __init__(self, state_size, action_size, learning_rate, name):
             #self.state_size = state_size         #(OK)
             self.state_size = state_size         #(OK)
             self.action_size = action_size       #(OK)
             self.learning_rate = learning_rate   #(OK) args.
+            self.name = name                     #added for Fixed Targeting
+            with tf.device("/device:gpu:0"):
+                with tf.variable_scope(self.name): #name
+                    # We create the placeholders
+                    # *state_size means that we take each elements of state_size in tuple hence is like if we wrote
+                    ### Replacing [None, *state_size] by [1, batch_size, *state_size] NOPE needs [None, *state_size for predict_action (1 value)]
+                    #self.inputs_ = tf.placeholder(tf.float32, [None, *state_size], name="inputs")
+                    self.inputs_ = tf.placeholder(tf.float32, [None, *state_size], name="inputs")
+                    self.actions_ = tf.placeholder(tf.float32, [None, self.action_size], name="actions_")
 
-            with tf.variable_scope(name):
-                # We create the placeholders
-                # *state_size means that we take each elements of state_size in tuple hence is like if we wrote
-                ### Replacing [None, *state_size] by [1, batch_size, *state_size] NOPE needs [None, *state_size for predict_action (1 value)]
-                #self.inputs_ = tf.placeholder(tf.float32, [None, *state_size], name="inputs")
-                self.inputs_ = tf.placeholder(tf.float32, [None, *state_size], name="inputs")
-                self.actions_ = tf.placeholder(tf.float32, [None, self.action_size], name="actions_")
-
-                # Remember that target_Q is the R(s,a) + ymax Qhat(s', a')
-                self.target_Q = tf.placeholder(tf.float32, [None], name="target")
+                    # Remember that target_Q is the R(s,a) + ymax Qhat(s', a')
+                    self.target_Q = tf.placeholder(tf.float32, [None], name="target")
 
 
-                """
-                First convnet:
-                CNN
-                ELU
-                """
-                # Input is RxCx4 (from 110x84x4)
-                self.conv1 = tf.layers.conv2d(inputs = self.inputs_,
-                                        filters = 32,
-                                        kernel_size = [4,4],    # from [8,8]
-                                        strides = [1,1],
+                    """
+                    First convnet:
+                    CNN
+                    ELU
+                    """
+                    """
+                    # Input is RxCx4 (from 110x84x4)
+                    self.conv1 = tf.layers.conv2d(inputs = self.inputs_,
+                                            filters = 16,
+                                            kernel_size = [4,4],    # from [8,8]
+                                            strides = [1,1],
+                                            padding = "VALID",
+                                            kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                            name = "conv1")
+
+                    self.conv1_out = tf.nn.elu(self.conv1, name="conv1_out")
+                    """
+                    """
+                    Second convnet:
+                    CNN
+                    ELU
+                    """
+                    """
+                    self.conv2 = tf.layers.conv2d(inputs = self.conv1_out,
+                                        filters = 64,
+                                        kernel_size = [3,3],  # from [4,4]
+                                        strides = [2,2],
                                         padding = "VALID",
                                         kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                        name = "conv1")
+                                        name = "conv2")
 
-                self.conv1_out = tf.nn.elu(self.conv1, name="conv1_out")
+                    self.conv2_out = tf.nn.elu(self.conv2, name="conv2_out")
+                    """
+                    """
+                    Third convnet:
+                    CNN
+                    ELU
+                    """
+                    """
+                    self.conv3 = tf.layers.conv2d(inputs = self.conv2_out,
+                                        filters = 64,
+                                        kernel_size = [3,3],
+                                        strides = [2,2],
+                                        padding = "VALID",
+                                        kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
+                                        name = "conv3")
 
-                """
-                Second convnet:
-                CNN
-                ELU
-                """
-                """
-                self.conv2 = tf.layers.conv2d(inputs = self.conv1_out,
-                                    filters = 64,
-                                    kernel_size = [3,3],  # from [4,4]
-                                    strides = [2,2],
-                                    padding = "VALID",
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                    name = "conv2")
+                    self.conv3_out = tf.nn.elu(self.conv3, name="conv3_out")
 
-                self.conv2_out = tf.nn.elu(self.conv2, name="conv2_out")
-                """
-                """
-                Third convnet:
-                CNN
-                ELU
-                """
-                """
-                self.conv3 = tf.layers.conv2d(inputs = self.conv2_out,
-                                    filters = 64,
-                                    kernel_size = [3,3],
-                                    strides = [2,2],
-                                    padding = "VALID",
-                                    kernel_initializer=tf.contrib.layers.xavier_initializer_conv2d(),
-                                    name = "conv3")
+                    self.flatten = tf.contrib.layers.flatten(self.conv3_out)
+                    """
+                    #self.flatten = tf.contrib.layers.flatten(self.conv1_out)
+                    self.flatten = tf.contrib.layers.flatten(self.inputs_)
+                    #1_Hot_Encode L and H and add it here below flatten [TO BE ADDED - FIXED FOR NOW...]
+                    ### INIT self.flatten to our flatten state!!! (no CNN for now)
+                    #self.flatten = self.inputs_
 
-                self.conv3_out = tf.nn.elu(self.conv3, name="conv3_out")
+                    # append 5 node features at the end (cursor 2x1, L, H)
+                    self.fc = tf.layers.dense(inputs = self.flatten,
+                        units = 512,
+                        activation = tf.nn.elu,
+                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                        name="fc1")
+                    self.fc2 = tf.layers.dense(inputs = self.fc,
+                        units = 512,
+                        activation = tf.nn.elu,
+                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                        name="fc2")
 
-                self.flatten = tf.contrib.layers.flatten(self.conv3_out)
-                """
-                self.flatten = tf.contrib.layers.flatten(self.conv1_out)
-                #1_Hot_Encode L and H and add it here below flatten [TO BE ADDED - FIXED FOR NOW...]
-                ### INIT self.flatten to our flatten state!!! (no CNN for now)
-                #self.flatten = self.inputs_
-
-                # append 5 node features at the end (cursor 2x1, L, H)
-                self.fc = tf.layers.dense(inputs = self.flatten,
-                    units = 512,
-                    activation = tf.nn.elu,
-                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                    name="fc1")
-                self.fc2 = tf.layers.dense(inputs = self.fc,
-                    units = 512,
-                    activation = tf.nn.elu,
-                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                    name="fc2")
-
-                self.output = tf.layers.dense(inputs = self.fc2,
-                    kernel_initializer=tf.contrib.layers.xavier_initializer(),
-                    units = self.action_size,
-                    activation=None)
+                    self.output = tf.layers.dense(inputs = self.fc2,
+                        kernel_initializer=tf.contrib.layers.xavier_initializer(),
+                        units = self.action_size,
+                        activation=None)
 
 
 
-                # Q is our predicted Q value.
-                self.Q = tf.reduce_sum(tf.multiply(self.output, self.actions_))
+                    # Q is our predicted Q value.
+                    self.Q = tf.reduce_sum(tf.multiply(self.output, self.actions_))
 
-                # The loss is the difference between our predicted Q_values and the Q_target
-                # Sum(Qtarget - Q)^2
-                self.loss = tf.reduce_mean(tf.square(self.target_Q - self.Q))
+                    # The loss is the difference between our predicted Q_values and the Q_target
+                    # Sum(Qtarget - Q)^2
+                    self.loss = tf.reduce_mean(tf.square(self.target_Q - self.Q))
 
-                self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
+                    self.optimizer = tf.train.AdamOptimizer(self.learning_rate).minimize(self.loss)
 
 
     class Memory():
@@ -193,6 +198,21 @@ def main(args):
 
         return action, explore_probability
 
+    def update_target_graph():
+
+        # Get the parameters of our DQNNetwork
+        from_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "DQNetwork")
+
+        # Get the parameters of our Target_network
+        to_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "TargetNetwork")
+
+        op_holder = []
+
+        # Update our target_network parameters with DQNNetwork parameters
+        for from_var,to_var in zip(from_vars,to_vars):
+            op_holder.append(to_var.assign(from_var))
+        return op_holder
+
     # Init
     possible_actions = np.array(np.identity(action_size,dtype=int).tolist()) #(OK)
     print("The action size is : ", action_size) #(OK)
@@ -202,7 +222,13 @@ def main(args):
     tf.reset_default_graph()
 
     # Instantiate the DQNetwork
-    DQNetwork = DQNetwork(state_size, action_size, learning_rate)
+    #DQNetwork = DQNetwork(state_size, action_size, learning_rate)
+
+    # Instantiate the DQNetwork
+    DQNetwork = DDDQNNet(state_size, action_size, learning_rate, name="DQNetwork")
+
+    # Instantiate the target network
+    TargetNetwork = DDDQNNet(state_size, action_size, learning_rate, name="TargetNetwork")
 
     # Instantiate memory
     memory = Memory(max_size = memory_size)
@@ -242,7 +268,7 @@ def main(args):
             game = Game({'max_steps':max_steps}) # initialize game from game.py not
             h = 6 #random.randint(1, R * C + 1)
             l = 1 #random.randint(1, h // 2 + 1)
-            pizza_lines = [''.join([random.choice("MT") for _ in range(C)]) for _ in range(R)]
+            #pizza_lines = [''.join([random.choice("MT") for _ in range(C)]) for _ in range(R)]
             pizza_lines = ["TMMMTTT","MMMMTMM", "TTMTTMT", "TMMTMMM", "TTTTTTM", "TTTTTTM"]
             pizza_config = { 'pizza_lines': pizza_lines, 'r': R, 'c': C, 'l': l, 'h': h }
             _state = preprocess(game.init(pizza_config)[0])  #np.zeros(OBSERVATION_DIM) #get only first value of tuple
@@ -279,15 +305,25 @@ def main(args):
     saver = tf.train.Saver()
 
     if training == True:
-        with tf.Session() as sess:
+        config = tf.ConfigProto(allow_soft_placement = True)
+        with tf.Session(config=config) as sess:
             # Initialize the variables
             sess.run(tf.global_variables_initializer())
 
             # Initialize the decay rate (that will use to reduce epsilon)
             decay_step = 0
+
+            # Set tau = 0
+            tau = 0
+
+            # Update the parameters of our TargetNetwork with DQN_weights
+            update_target = update_target_graph()
+            sess.run(update_target)
+
             rewards_list = []
             average_reward = []
             average_reward_scalar = 0
+            high_score = 0
             for episode in range(total_episodes):
                 # Set step to 0
                 step = 0
@@ -300,13 +336,16 @@ def main(args):
                 game = Game({'max_steps':max_steps}) # initialize game from game.py
                 h = 6 #random.randint(1, R * C + 1)
                 l = 1 #random.randint(1, h // 2 + 1)
-                pizza_lines = [''.join([random.choice("MT") for _ in range(C)]) for _ in range(R)]
+                #pizza_lines = [''.join([random.choice("MT") for _ in range(C)]) for _ in range(R)]
                 pizza_lines = ["TMMMTTT","MMMMTMM", "TTMTTMT", "TMMTMMM", "TTTTTTM", "TTTTTTM"]
                 pizza_config = { 'pizza_lines': pizza_lines, 'r': R, 'c': C, 'l': l, 'h': h }
                 _state = preprocess(game.init(pizza_config)[0])
 
                 while step < max_steps:
                     step += 1
+
+                    # Increase the C step
+                    tau += 1
 
                     #Increase decay_step
                     decay_step +=1
@@ -317,7 +356,7 @@ def main(args):
                     _action = ACTIONS[np.argmax(action)]
 
                     #Perform the action and get the next_state, reward, and done information
-                    next_state, _reward, _done, _ = game.step(_action)  #next_state is _state in Game agent
+                    next_state, _reward, _done, _information = game.step(_action)  #next_state is _state in Game agent
                     _next_state = preprocess(next_state)
 
                     # Add the reward to total reward
@@ -358,8 +397,16 @@ def main(args):
                         # Store transition <st,at,rt+1,st+1> in memory D
                         memory.add((_state, action, _reward, _next_state, _done))
 
-                        if episode_render and ((episode % 100 == 0 and episode < 500) or (episode % 1000 == 0)):
+                        #if episode_render and ((episode % 100 == 0 and episode < 500) or (episode % 1000 == 0)):
+                        #    game.render()
+                        if (_information['score'] > high_score) or ((_information['score'] > R * C * .95) and (episode % 400 == 0)):
+                            high_score = _information['score']
                             game.render()
+                            print('Episode {0}'.format(episode))
+                            print('Score = {0}'.format(high_score))
+                            print(_information['slices'])
+                            print(episode_actions)
+                            print(episode_rewards)
                     else:
                         # Add experience to memory
                         memory.add((_state, action, _reward, _next_state, _done))
@@ -384,20 +431,34 @@ def main(args):
                     dones_mb = np.array([each[4] for each in batch])
                     target_Qs_batch = []
 
+                    ### DOUBLE DQN Logic
+                    # Use DQNNetwork to select the action to take at next_state (a') (action with the highest Q-value)
+                    # Use TargetNetwork to calculate the Q_val of Q(s',a')
                     # Get Q values for next_state /!\ --- Why shape of DQNetwork.inputs_ = (1, 64, 89??)
-                    Qs_next_state = sess.run(DQNetwork.output, feed_dict = {DQNetwork.inputs_: next_states_mb})
+                    #Qs_next_state = sess.run(DQNetwork.output, feed_dict = {DQNetwork.inputs_: next_states_mb})
+                    # Get Q values for next_state
+                    q_next_state = sess.run(DQNetwork.output, feed_dict = {DQNetwork.inputs_: next_states_mb})
+                    # Calculate Qtarget for all actions that state
+                    q_target_next_state = sess.run(TargetNetwork.output, feed_dict = {TargetNetwork.inputs_: next_states_mb})
 
+                    # Set Q_target = r if the episode ends at s+1, otherwise set Q_target = r + gamma * Qtarget(s',a')
                     # Set Q_target = r if the episode ends at s+1, otherwise set Q_target = r + gamma*maxQ(s', a')
                     for i in range(0, len(batch)):
                         terminal = dones_mb[i]
+
+                        # We got a'
+                        action_ix = np.argmax(q_next_state[i])
 
                         # If we are in a terminal state, only equals reward
                         if terminal:
                             target_Qs_batch.append(rewards_mb[i])
 
                         else:
-                            target = rewards_mb[i] + gamma * np.max(Qs_next_state[i])
+                            # Take the Qtarget for action a'
+                            target = rewards_mb[i] + gamma * q_target_next_state[i][action_ix]
                             target_Qs_batch.append(target)
+                            #target = rewards_mb[i] + gamma * np.max(Qs_next_state[i])
+                            #target_Qs_batch.append(target)
 
 
                     targets_mb = np.array([each for each in target_Qs_batch])
@@ -421,6 +482,12 @@ def main(args):
                     writer.add_summary(summary, episode)
                     writer.flush()
 
+                    if tau > max_tau:
+                        # Update the parameters of our TargetNetwork with DQN_weights
+                        update_target = update_target_graph()
+                        sess.run(update_target)
+                        tau = 0
+                        print("Model updated")
 
     with tf.Session() as sess:
         total_test_rewards = []
@@ -436,7 +503,7 @@ def main(args):
             game = Game({'max_steps':max_steps}) # initialize game from game.py
             h = 6 #random.randint(1, R * C + 1)
             l = 1 #random.randint(1, h // 2 + 1)
-            pizza_lines = [''.join([random.choice("MT") for _ in range(C)]) for _ in range(R)]
+            #pizza_lines = [''.join([random.choice("MT") for _ in range(C)]) for _ in range(R)]
             pizza_lines = ["TMMMTTT","MMMMTMM", "TTMTTMT", "TMMTMMM", "TTTTTTM", "TTTTTTM"]
             pizza_config = { 'pizza_lines': pizza_lines, 'r': R, 'c': C, 'l': l, 'h': h }
             _state = preprocess(game.init(pizza_config)[0])  #np.zeros(OBSERVATION_DIM) #get only first value of tuple
@@ -491,7 +558,7 @@ if __name__ == '__main__':
     ### MODEL HYPERPARAMETERS
 
     ### PREPROCESSING HYPERPARAMETERS
-    stack_size = 4                 # NEEDS TO BE CHECKED Number of frames stacked
+    stack_size = 5                 # NEEDS TO BE CHECKED Number of frames stacked
     #state_size = [110, 84, 4]      # NEEDS TO BE CHECKED !!! Our input is a stack of 4 frames hence 110x84x4 (Width, height, channels)
     state_size = [R, C, stack_size]      # NEEDS TO BE CHECKED !!! Our input is a stack of 4 frames hence 110x84x4 (Width, height, channels)
     #state_size = [OBSERVATION_DIM] #[R, C, 2]  # NEEDS TO BE CHECKED !!! ([1, OBSERVATION_DIM]) ? [None, OBSERVATION_DIM]
@@ -502,6 +569,9 @@ if __name__ == '__main__':
     total_episodes = 60000            #(OK) Total episodes for training (6000 EPOCHS)
     max_steps = 200                 #(OK) Max possible steps in an episode [ROLLOUT_SIZE]
     batch_size = 64     #instead of 64           #10000                # NEEDS TO BE CHECKED !!! Batch size 64?
+
+    # FIXED Q TARGETS HYPERPARAMETERS
+    max_tau = 1000 #Tau is the C step where we update our target network (10000 / 1000 from the game)
 
     # Exploration parameters for epsilon greedy strategy
     explore_start = 1.0            # (OK)exploration probability at start
