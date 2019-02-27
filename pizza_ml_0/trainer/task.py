@@ -71,7 +71,7 @@ def main(args):
                     CNN
                     ELU
                     """
-                    """
+
                     # Input is RxCx4 (from 110x84x4)
                     self.conv1 = tf.layers.conv2d(inputs = self.inputs_,
                                             filters = 16,
@@ -82,7 +82,7 @@ def main(args):
                                             name = "conv1")
 
                     self.conv1_out = tf.nn.elu(self.conv1, name="conv1_out")
-                    """
+
                     """
                     Second convnet:
                     CNN
@@ -117,8 +117,8 @@ def main(args):
 
                     self.flatten = tf.contrib.layers.flatten(self.conv3_out)
                     """
-                    #self.flatten = tf.contrib.layers.flatten(self.conv1_out)
-                    self.flatten = tf.contrib.layers.flatten(self.inputs_)
+                    self.flatten = tf.contrib.layers.flatten(self.conv1_out)
+                    #self.flatten = tf.contrib.layers.flatten(self.inputs_)
                     #1_Hot_Encode L and H and add it here below flatten [TO BE ADDED - FIXED FOR NOW...]
                     ### INIT self.flatten to our flatten state!!! (no CNN for now)
                     #self.flatten = self.inputs_
@@ -255,9 +255,14 @@ def main(args):
         if episode_render and i % 20 == 0:        # NEEDS TO BE CHECKED  args.render:
             game.render()
 
+        #Reward clipping to -1 and +1
+        if _reward < 0:
+            _reward = -1
+        if _reward > 0:
+            _reward = +1
 
         # If the episode is finished (we maxed out the number of frames)
-        if _done:
+        if _done or _reward < 0:
             # We finished the episode
             _next_state = np.zeros(_state.shape) # _state is flattened with cursor, L and H appended
 
@@ -363,8 +368,15 @@ def main(args):
                     episode_rewards.append(_reward)
                     episode_actions.append(_action)
 
-                    # If the game is finished
-                    if _done:
+                    #Reward clipping to -1 and +1
+                    if _reward < 0:
+                        _reward = -1
+                    if _reward > 0:
+                        _reward = +1
+
+
+                    # If the game is finished or Die Early
+                    if _done or _reward < 0:
                         # The episode ends so no next state
                         _next_state = np.zeros(_state.shape) # _state is flattened with cursor, L and H appended
 
@@ -382,6 +394,9 @@ def main(args):
                             print(episode_actions)
                             print(episode_rewards)
                             # Add reward to that point between printing episodes
+                            # Die Early case
+                            if _reward < 0:
+                                average_reward_scalar = 0
                             if (episode < 500):
                                 if (episode == 0):
                                     average_reward_scalar = np.sum(average_reward)
@@ -571,7 +586,7 @@ if __name__ == '__main__':
     batch_size = 64     #instead of 64           #10000                # NEEDS TO BE CHECKED !!! Batch size 64?
 
     # FIXED Q TARGETS HYPERPARAMETERS
-    max_tau = 1000 #Tau is the C step where we update our target network (10000 / 1000 from the game)
+    max_tau = 100 #Tau is the C step where we update our target network (10000 / 1000 from the game)
 
     # Exploration parameters for epsilon greedy strategy
     explore_start = 1.0            # (OK)exploration probability at start
